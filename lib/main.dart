@@ -1,121 +1,150 @@
 import 'package:flutter/material.dart';
+import 'package:table_calendar/table_calendar.dart';
 
-void main() {
-  runApp(const MyApp());
+void main() => runApp(const MaterialApp(
+  debugShowCheckedModeBanner: false,
+  home: CalendarPage(),
+));
+
+class CalendarPage extends StatefulWidget {
+  const CalendarPage({super.key});
+  @override
+  State<CalendarPage> createState() => _CalendarPageState();
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class _CalendarPageState extends State<CalendarPage> {
+  DateTime _focusedDay = DateTime.now();
+  DateTime? _selectedDay;
 
-  // This widget is the root of your application.
+  // here comes the iCal sync with various sites
+  late final Map<DateTime, List<String>> _events;
+
   @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Flutter Demo',
-      theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
-        colorScheme: .fromSeed(seedColor: Colors.deepPurple),
-      ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
-    );
+  void initState() {
+    super.initState();
+    _selectedDay = _focusedDay;
+    
+    // random generated test event for today
+    final today = DateTime.now();
+    final normalizedToday = DateTime.utc(today.year, today.month, today.day);
+    
+    _events = {
+      normalizedToday: ['Booking.com - Kovacs Elek'],
+      // test: another test for tomorrow
+      normalizedToday.add(const Duration(days: 1)): ['Airbnb - Szabo Eva'],
+    };
   }
-}
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
-
-  @override
-  State<MyHomePage> createState() => _MyHomePageState();
-}
-
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
-
-  void _incrementCounter() {
-    setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
-    });
+  // gets the events formalized
+  List<String> _getEventsForDay(DateTime day) {
+    final normalizedDay = DateTime.utc(day.year, day.month, day.day);
+    return _events[normalizedDay] ?? [];
   }
 
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
+    // interacted day events (list)
+    final selectedEvents = _getEventsForDay(_selectedDay ?? _focusedDay);
+
     return Scaffold(
+      backgroundColor: const Color(0xFFF8F9FD),
       appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
+        title: const Text('Apartman Naptár', style: TextStyle(color: Colors.black87)),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
       ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
-          mainAxisAlignment: .center,
-          children: [
-            const Text('You have pushed the button this many times:'),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
+      body: Column(
+        children: [
+          // calendar card design
+          Container(
+            margin: const EdgeInsets.all(16.0),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(25),
+              boxShadow: [
+                BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 20)
+              ],
             ),
-          ],
-        ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
+            child: TableCalendar<String>(
+              firstDay: DateTime.utc(2024, 1, 1),
+              lastDay: DateTime.utc(2030, 12, 31),
+              focusedDay: _focusedDay,
+              // KIVÁLASZTÁS LOGIKÁJA
+              selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
+              onDaySelected: (selectedDay, focusedDay) {
+                setState(() {
+                  _selectedDay = selectedDay;
+                  _focusedDay = focusedDay; // update calendar header
+                });
+              },
+              // STÍLUS
+              calendarStyle: const CalendarStyle(
+                todayDecoration: BoxDecoration(color: Color(0xFFC5CAE9), shape: BoxShape.circle),
+                selectedDecoration: BoxDecoration(color: Color(0xFF3F51B5), shape: BoxShape.circle),
+                markerDecoration: BoxDecoration(color: Color(0xFF7986CB), shape: BoxShape.circle),
+              ),
+              headerStyle: const HeaderStyle(formatButtonVisible: false, titleCentered: true),
+              // small dots under days (reservation indicator)
+              eventLoader: _getEventsForDay,
+            ),
+          ),
+
+          // event list header
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
+            child: Align(
+              alignment: Alignment.centerLeft, 
+              child: Text(
+                "Kiválasztott nap eseményei", 
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)
+              ),
+            ),
+          ),
+          
+          // dynamic event list
+          Expanded(
+            child: selectedEvents.isEmpty
+                ? Center(
+                    child: Text(
+                      "Nincs érkező vendég ezen a napon.",
+                      style: TextStyle(color: Colors.grey[500]),
+                    ),
+                  )
+                : ListView.builder(
+                    itemCount: selectedEvents.length,
+                    itemBuilder: (context, index) {
+                      // fill with [data, name] values
+                      final parts = selectedEvents[index].split(' - ');
+                      final source = parts[0];
+                      final name = parts[1];
+
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                        child: Container(
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE8EAF6),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.door_front_door, color: Color(0xFF3F51B5)),
+                              const SizedBox(width: 15),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                  Text(source, style: TextStyle(color: Colors.grey[700])),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+          ),
+        ],
       ),
     );
   }
