@@ -5,8 +5,11 @@ import 'package:intl/intl.dart';
 
 import '../providers/booking_provider.dart';
 import '../providers/apartment_provider.dart';
+import '../providers/business_provider.dart'; 
 import '../models/booking.dart';
 import '../models/apartment.dart';
+import '../services/pdf_service.dart'; 
+import 'tax_settings_screen.dart'; 
 
 class CalendarScreen extends ConsumerStatefulWidget {
   const CalendarScreen({super.key});
@@ -127,9 +130,12 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
               ),
               ListTile(
                 leading: const Icon(Icons.account_balance_rounded, color: Color(0xFF3F51B5)),
-                title: const Text('NTAK / NAV Integráció'),
-                subtitle: const Text('Automatikus adatszolgáltatás (Hamarosan)'),
-                onTap: () { Navigator.pop(context); },
+                title: const Text('Adózás és Integrációk'), 
+                subtitle: const Text('Számlázó és NTAK beállítások'), 
+                onTap: () { 
+                  Navigator.pop(context);
+                  Navigator.push(context, MaterialPageRoute(builder: (context) => const TaxSettingsScreen())); 
+                },
               ),
             ],
           ),
@@ -233,6 +239,254 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     );
   }
 
+  void _showBillingForm(BuildContext context, Booking booking) {
+    final nameCtrl = TextEditingController(text: booking.guestName);
+    final emailCtrl = TextEditingController();
+    final zipCtrl = TextEditingController();
+    final cityCtrl = TextEditingController();
+    final addressCtrl = TextEditingController();
+    final priceCtrl = TextEditingController();
+    
+    bool sendToNtak = true; 
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(25))),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setPanelState) {
+          return Padding(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(context).viewInsets.bottom,
+              left: 24, right: 24, top: 16
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(child: Container(width: 40, height: 5, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(10)))),
+                  const SizedBox(height: 24),
+                  
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Expanded(
+                        child: Text('Számlázás és NTAK', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(color: const Color(0xFFE8EAF6), borderRadius: BorderRadius.circular(8)),
+                        child: const Text('API Kész', style: TextStyle(color: Color(0xFF3F51B5), fontWeight: FontWeight.bold, fontSize: 12)),
+                      )
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  const Text('Állíts ki hivatalos számlát a vendégnek.', style: TextStyle(color: Colors.grey)),
+                  const SizedBox(height: 24),
+
+                  TextField(controller: nameCtrl, decoration: InputDecoration(labelText: 'Vevő (Vendég) neve', filled: true, fillColor: const Color(0xFFF8F9FD), border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none))),
+                  const SizedBox(height: 12),
+                  TextField(controller: emailCtrl, keyboardType: TextInputType.emailAddress, decoration: InputDecoration(labelText: 'E-mail cím', filled: true, fillColor: const Color(0xFFF8F9FD), border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none))),
+                  const SizedBox(height: 12),
+
+                  Row(
+                    children: [
+                      Expanded(flex: 1, child: TextField(controller: zipCtrl, keyboardType: TextInputType.number, decoration: InputDecoration(labelText: 'Irsz.', filled: true, fillColor: const Color(0xFFF8F9FD), border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none)))),
+                      const SizedBox(width: 12),
+                      Expanded(flex: 2, child: TextField(controller: cityCtrl, decoration: InputDecoration(labelText: 'Város', filled: true, fillColor: const Color(0xFFF8F9FD), border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none)))),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(controller: addressCtrl, decoration: InputDecoration(labelText: 'Utca, házszám', filled: true, fillColor: const Color(0xFFF8F9FD), border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none))),
+                  const SizedBox(height: 12),
+
+                  TextField(
+                    controller: priceCtrl,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      labelText: 'Végösszeg (HUF)', 
+                      filled: true, fillColor: const Color(0xFFE8F5E9), 
+                      prefixIcon: const Icon(Icons.payments_outlined, color: Color(0xFF2E7D32)),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none)
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(border: Border.all(color: Colors.grey[300]!), borderRadius: BorderRadius.circular(16)),
+                    child: SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Automatikus NTAK adatszolgáltatás', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                      subtitle: const Text('A számlával együtt beküldjük az adatokat.', style: TextStyle(fontSize: 12)),
+                      activeColor: const Color(0xFF3F51B5),
+                      value: sendToNtak,
+                      onChanged: (bool value) {
+                        setPanelState(() { sendToNtak = value; });
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        final invoiceData = {
+                          'name': nameCtrl.text.isEmpty ? 'Ismeretlen Vevő' : nameCtrl.text,
+                          'address': '${zipCtrl.text} ${cityCtrl.text}, ${addressCtrl.text}'.trim(),
+                          'price': priceCtrl.text.isEmpty ? '0' : priceCtrl.text,
+                          'ntak': sendToNtak,
+                          'checkIn': DateFormat('yyyy.MM.dd').format(booking.checkIn),
+                          'checkOut': DateFormat('yyyy.MM.dd').format(booking.checkOut),
+                        };
+                        Navigator.pop(context);
+                        _showInvoicePreview(context, invoiceData);
+                      },
+                      icon: const Icon(Icons.remove_red_eye_outlined, color: Colors.white),
+                      label: const Text('Tervezet Megtekintése', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF3F51B5),
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                ],
+              ),
+            ),
+          );
+        }
+      ),
+    );
+  }
+
+  // --- 2. HAGYOMÁNYOS SZÁMLA ELŐNÉZET ---
+  void _showInvoicePreview(BuildContext context, Map<String, dynamic> data) {
+    // Betöltjük az aktuális beállításokat
+    final biz = ref.read(businessProvider);
+
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('ELŐNÉZET', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(border: Border.all(color: Colors.red), borderRadius: BorderRadius.circular(4)),
+                    child: const Text('NEM HITELES', style: TextStyle(color: Colors.red, fontSize: 10, fontWeight: FontWeight.bold)),
+                  )
+                ],
+              ),
+              const Divider(color: Colors.black, thickness: 2),
+              const SizedBox(height: 16),
+              
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Kibocsátó:', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                        // --- JAVÍTVA: Dinamikus kibocsátó adatok beállítása ---
+                        Text(biz.companyName.isEmpty ? 'Nincs kitöltve' : biz.companyName, style: const TextStyle(fontWeight: FontWeight.bold)),
+                        Text(biz.address.isEmpty ? 'Nincs kitöltve' : biz.address, style: const TextStyle(fontSize: 12)),
+                        Text(biz.taxNumber.isEmpty ? 'Nincs kitöltve' : 'Adószám: ${biz.taxNumber}', style: const TextStyle(fontSize: 12)),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Vevő:', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                        Text(data['name'], style: const TextStyle(fontWeight: FontWeight.bold)),
+                        Text(data['address'].toString().isEmpty ? 'Cím nincs megadva' : data['address'], style: const TextStyle(fontSize: 12)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              const Divider(color: Colors.black54),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(child: Text('Szálláshely-szolgáltatás\n(${data['checkIn']} - ${data['checkOut']})', style: const TextStyle(fontSize: 13))),
+                  Text('${data['price']} Ft', style: const TextStyle(fontWeight: FontWeight.bold)),
+                ],
+              ),
+              const Divider(color: Colors.black54),
+              const SizedBox(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('FIZETENDŐ:', style: TextStyle(fontWeight: FontWeight.bold)),
+                  Text('${data['price']} Ft', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                ],
+              ),
+              const SizedBox(height: 32),
+              
+              // MŰVELETI GOMBOK
+              Column(
+                children: [
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Számla jóváhagyva és elküldve!'), backgroundColor: Colors.green));
+                      },
+                      style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF2E7D32), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+                      child: const Text('Jóváhagyás és Beküldés', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () async {
+                        Navigator.pop(context);
+                        await PdfService.generateAndShareInvoice(
+                          invoiceData: data,
+                          sellerName: biz.companyName.isEmpty ? 'Nincs kitöltve' : biz.companyName,
+                          sellerAddress: biz.address.isEmpty ? 'Nincs kitöltve' : biz.address,
+                          sellerTaxNum: biz.taxNumber.isEmpty ? 'Nincs kitöltve' : biz.taxNumber,
+                        );
+                      },
+                      icon: const Icon(Icons.picture_as_pdf, size: 18),
+                      label: const Text('Mentés PDF-ként'),
+                      style: OutlinedButton.styleFrom(foregroundColor: Colors.black87, side: const BorderSide(color: Colors.black26), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Mégse', style: TextStyle(color: Colors.grey)),
+                  ),
+                ],
+              )
+            ],
+          ),
+        ),
+      ),
+    );
+  }
   // --- EREDETI Esemény részletei (Számla/Törlés) ---
   void _showEventDetails(BuildContext context, Booking booking) {
     final DateFormat detailedTimeFormat = DateFormat('yyyy. MM. dd. HH:mm');
@@ -314,7 +568,10 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: ElevatedButton.icon(
-                      onPressed: () { Navigator.pop(context); /* Számla logika */ },
+                      onPressed: () { 
+                        Navigator.pop(context); // Először bezárjuk az esemény részleteit
+                        _showBillingForm(context, booking); // Majd megnyitjuk a számlázót!
+                      },
                       icon: const Icon(Icons.receipt_long, color: Colors.white),
                       label: const Text('Számla', style: TextStyle(color: Colors.white)),
                       style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF3F51B5), padding: const EdgeInsets.symmetric(vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
@@ -423,13 +680,18 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         foregroundColor: Colors.black87,
+        // --- JAVÍTVA: Profilkép igazítása pontosan a Calendar mellé ---
+        leadingWidth: 56, 
         leading: Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: GestureDetector(
-            onTap: () => _showSettingsPanel(context),
-            child: const CircleAvatar(
-              backgroundColor: Color(0xFFE8EAF6),
-              child: Icon(Icons.person, color: Color(0xFF3F51B5)),
+          padding: const EdgeInsets.only(left: 16.0),
+          child: Center(
+            child: GestureDetector(
+              onTap: () => _showSettingsPanel(context),
+              child: const CircleAvatar(
+                radius: 20,
+                backgroundColor: Color(0xFFE8EAF6),
+                child: Icon(Icons.person, color: Color(0xFF3F51B5)),
+              ),
             ),
           ),
         ),
