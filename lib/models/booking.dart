@@ -20,11 +20,11 @@ class Booking {
   Color get cardColor {
     switch (source) {
       case BookingSource.booking:
-        return const Color(0xFFE3F2FD); // pastel blue
+        return const Color(0xFFE3F2FD);
       case BookingSource.airbnb:
-        return const Color(0xFFFFEBEE); // pastel red
+        return const Color(0xFFFFEBEE);
       case BookingSource.manual:
-        return const Color(0xFFE8F5E9); // pastel green
+        return const Color(0xFFE8F5E9);
     }
   }
 
@@ -37,5 +37,28 @@ class Booking {
       case BookingSource.manual:
         return const Color(0xFF2E7D32);
     }
+  }
+
+  // --- ÚJ: JSON konverzió a lokális mentéshez ---
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'guestName': guestName,
+    'checkIn': checkIn.toIso8601String(),
+    'checkOut': checkOut.toIso8601String(),
+    'source': source.name,
+  };
+
+  factory Booking.fromJson(Map<String, dynamic> json) {
+    return Booking(
+      id: json['id'],
+      guestName: json['guestName'],
+      checkIn: DateTime.parse(json['checkIn']),
+      checkOut: DateTime.parse(json['checkOut']),
+      // Enum visszafejtése String-ből
+      source: BookingSource.values.firstWhere(
+        (e) => e.name == json['source'], 
+        orElse: () => BookingSource.manual,
+      ),
+    );
   }
 }

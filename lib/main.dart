@@ -1,14 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-// Importáljuk a külön fájlba kiszervezett főképernyőt.
-// Ügyelj rá, hogy a mappa struktúrádnak megfelelő legyen az útvonal!
+import 'package:shared_preferences/shared_preferences.dart';
 import 'screens/calendar_screen.dart'; 
 
-void main() {
-  // A ProviderScope a Riverpod lelke. Ez fogja össze az összes 
-  // állapotot (Provider-t) az alkalmazásodban. E nélkül nem fog futni.
-  runApp(const ProviderScope(child: ApartmentSaaSApp()));
+// Létrehozunk egy globális providert a SharedPreferences-nek
+final sharedPrefsProvider = Provider<SharedPreferences>((ref) => throw UnimplementedError());
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  // Inicializáljuk a lokális tárolót az app indulása előtt
+  final prefs = await SharedPreferences.getInstance();
+
+  runApp(
+    ProviderScope(
+      // Injektáljuk a betöltött preferenciákat a Riverpod-ba
+      overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
+      child: const ApartmentSaaSApp(),
+    ),
+  );
 }
 
 class ApartmentSaaSApp extends StatelessWidget {
